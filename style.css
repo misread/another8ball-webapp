@@ -56,3 +56,57 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .ball, .ball.shaking { animation: none; }
 }
+
+/* Answer window over the "8": a dark liquid-like disc with floating text. */
+.ball { container-type: inline-size; position: relative; }
+.window {
+  position: absolute;
+  left: 50.3%;
+  top: 47.7%;
+  width: 55cqw;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #2a3190 0%, #14125a 55%, #0a0830 100%);
+  box-shadow: inset 0 0 6cqw rgba(0, 0, 0, 0.8), 0 0 4cqw rgba(60, 70, 220, 0.45);
+  opacity: 0;
+  filter: blur(6px);
+  transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease;
+  pointer-events: none;
+}
+.window.open { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+.answer {
+  width: 76%;
+  text-align: center;
+  color: #d6dcff;
+  font-weight: 600;
+  line-height: 1.2;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  text-shadow: 0 0 1.6cqw rgba(140, 160, 255, 0.9);
+  opacity: 0;
+  transform: translateY(30%);
+  filter: blur(5px);
+}
+.answer.rise { animation: rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+.answer.sink { animation: sink 0.4s ease-in forwards; }
+.answer.s1 { font-size: 7cqw; }
+.answer.s2 { font-size: 5.6cqw; }
+.answer.s3 { font-size: 4.6cqw; }
+.answer.s4 { font-size: 4cqw; }
+@keyframes rise {
+  0% { opacity: 0; transform: translateY(35%) scale(0.8); filter: blur(6px); }
+  60% { opacity: 0.8; filter: blur(1.5px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes sink {
+  from { opacity: 1; transform: translateY(0); filter: blur(0); }
+  to { opacity: 0; transform: translateY(-25%); filter: blur(5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .answer.rise, .answer.sink, .window { animation: none; transition: none; }
+  .answer.rise { opacity: 1; transform: none; filter: none; }
+}
