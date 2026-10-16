@@ -41,6 +41,7 @@ main {
   -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 71%);
   mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 71%);
   position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.ball:not(.ready) { visibility: hidden; } /* shown once ball8.jpg is loaded, so the empty triangle never flashes */
 .face8 { transition: opacity 0.5s ease; }
 .ball.answered .face8 { opacity: 0; }
 .ball.shaking { animation: shake 0.5s linear infinite; }

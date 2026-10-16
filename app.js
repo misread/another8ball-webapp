@@ -10,6 +10,10 @@
   var SHAKE_WINDOW = 1000; // ms
   var SHAKE_DURATION = 1300; // ms of shaking before the answer floats up
 
+  // Worker that posts the answer to the chat (worker/); empty = answers stay inside the app
+  var WORKER_URL = "";
+  var POST_DELAY = 2500; // ms the user sees the answer before it goes to the chat and the app closes
+
   var tg = window.Telegram && window.Telegram.WebApp;
   var inTelegram = !!(tg && tg.initData);
   var params = new URLSearchParams(location.search);
@@ -23,6 +27,15 @@
   var current = -1;
   var jolts = [];
   var last = null;
+
+  var face8 = document.getElementById("face8");
+  function ready() { ball.classList.add("ready"); }
+  if (face8.complete && face8.naturalWidth) ready();
+  else {
+    face8.addEventListener("load", ready);
+    face8.addEventListener("error", ready);
+    setTimeout(ready, 4000); // never leave the page blank
+  }
 
   document.documentElement.lang = lang;
   hint.textContent = HINTS[lang].idle;
@@ -113,6 +126,18 @@
     return i;
   }
 
+  function postToChat(text) {
+    if (!WORKER_URL || !inTelegram) return;
+    if (!new URLSearchParams(tg.initData).get("query_id")) return;
+    fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: tg.initData, text: text }),
+    })
+      .then(function (r) { if (r.ok) tg.close(); })
+      .catch(function () {});
+  }
+
   function shake() {
     if (busy || !answers.length) return;
     busy = true;
@@ -127,6 +152,8 @@
       showAnswer(current);
       hint.textContent = HINTS[lang].again;
       haptic("medium");
+      var shown = current;
+      setTimeout(function () { if (shown === current) postToChat(answers[shown]); }, POST_DELAY);
       busy = false;
     }, SHAKE_DURATION);
   }
