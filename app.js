@@ -34,17 +34,75 @@
     } catch (e) {}
   }
 
-  function sizeClass(text) {
-    var n = text.length;
-    return n <= 12 ? "s1" : n <= 24 ? "s2" : n <= 40 ? "s3" : "s4";
+  // Inner triangle of ball.jpg in ball-width fractions (inset from the glass edge).
+  var TRI = { apexY: 0.279, baseY: 0.6, slope: 0.576, inset: 0.026, cx: 0.5 };
+  var LINE_H = 1.12;
+  var measure = document.createElement("canvas").getContext("2d");
+
+  function halfWidthAt(y) {
+    return Math.max(0, TRI.slope * (y - TRI.apexY) - TRI.inset);
+  }
+
+  function wrap(words, width) {
+    var lines = [], line = "";
+    for (var i = 0; i < words.length; i++) {
+      var t = line ? line + " " + words[i] : words[i];
+      if (line && measure.measureText(t).width > width) {
+        lines.push(line);
+        line = words[i];
+      } else {
+        line = t;
+      }
+    }
+    lines.push(line);
+    return lines;
+  }
+
+  // Largest font size (fraction of ball width) whose centered lines all stay inside the triangle.
+  function fitText(text) {
+    var words = text.split(/\s+/);
+    var best = null;
+    for (var size = 0.1; size >= 0.022 && !best; size -= 0.002) {
+      measure.font = "700 100px Philosopher, Georgia, serif";
+      var k = size / 100; // px at 100px font -> ball fraction
+      for (var w = 0.34; w >= 0.1 && !best; w -= 0.01) {
+        var lines = wrap(words, w / k);
+        var widths = lines.map(function (l) { return measure.measureText(l).width * k; });
+        var h = lines.length * size * LINE_H;
+        var maxW = Math.max.apply(null, widths);
+        if (maxW > w * 1.001 || h > TRI.baseY - TRI.apexY) continue;
+        // try block centers from the triangle's visual center outwards
+        for (var d = 0; d <= 0.1 && !best; d += 0.005) {
+          var signs = d ? [1, -1] : [1];
+          for (var s = 0; s < signs.length && !best; s++) {
+            var top = 0.51 + signs[s] * d - h / 2;
+            if (top + h > TRI.baseY) continue;
+            var ok = true;
+            for (var i = 0; i < lines.length && ok; i++) {
+              var y = top + i * size * LINE_H + size * 0.15; // glyphs start a little below the line box top
+              if (widths[i] / 2 > halfWidthAt(y)) ok = false;
+            }
+            if (ok) best = { lines: lines, size: size, top: top };
+          }
+        }
+      }
+    }
+    return best || { lines: [text], size: 0.022, top: 0.46 };
   }
 
   function showAnswer(index) {
-    var text = answers[index];
+    var fit = fitText(answers[index]);
     answerEl.className = "answer";
     void answerEl.offsetWidth; // restart the CSS animation
-    answerEl.textContent = text;
-    answerEl.className = "answer " + sizeClass(text) + " rise";
+    answerEl.textContent = "";
+    fit.lines.forEach(function (l) {
+      var row = document.createElement("span");
+      row.textContent = l;
+      answerEl.appendChild(row);
+    });
+    answerEl.style.fontSize = fit.size * 100 + "cqw";
+    answerEl.style.top = fit.top * 100 + "cqw";
+    answerEl.className = "answer rise";
   }
 
   function pickIndex() {
@@ -67,8 +125,8 @@
     busy = true;
     ball.classList.add("shaking");
     hint.textContent = HINTS[lang].busy;
-    win.classList.add("open"); // the "8" dissolves into the dark window
-    if (current >= 0) answerEl.className = "answer " + sizeClass(answers[current]) + " sink";
+    ball.classList.add("answered"); // the "8" fades out, revealing the empty triangle
+    if (current >= 0) answerEl.className = "answer sink";
     haptic("heavy");
     setTimeout(function () {
       current = pickIndex();
@@ -132,5 +190,6 @@
       });
     }
   }
+  if (document.fonts && document.fonts.load) document.fonts.load("700 20px Philosopher", "Абв Abc");
   startMotion();
 })();

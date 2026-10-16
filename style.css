@@ -1,3 +1,5 @@
+@font-face { font-family: "Philosopher"; font-weight: 700; font-display: block; src: url(fonts/philosopher-cyrillic.woff2) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Philosopher"; font-weight: 700; font-display: block; src: url(fonts/philosopher-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122; }
 :root {
   --bg: #0b0716;
   --fg: #e9e4f7;
@@ -24,20 +26,22 @@ main {
   padding: 16px;
 }
 .ball {
-  width: min(78vw, 56vh, 360px);
+  width: min(100vw, 66vh, 520px);
   aspect-ratio: 1;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: #000;
+  background: transparent;
   cursor: pointer;
-  box-shadow: 0 0 60px 8px var(--glow);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 71%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 71%);
   animation: float 3.2s ease-in-out infinite;
   transition: transform 0.15s ease;
 }
 .ball:active { transform: scale(0.96); }
 .ball:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
-.ball img { width: 100%; height: 100%; border-radius: 50%; display: block; pointer-events: none; }
+.ball img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.face8 { transition: opacity 0.5s ease; }
+.ball.answered .face8 { opacity: 0; }
 .ball.shaking { animation: shake 0.5s linear infinite; }
 .hint { margin: 0; text-align: center; font-size: 17px; opacity: 0.85; max-width: 22em; }
 @keyframes float {
@@ -57,46 +61,28 @@ main {
   .ball, .ball.shaking { animation: none; }
 }
 
-/* Answer window over the "8": a dark liquid-like disc with floating text. */
+/* Answer area: no background, lines are laid out by app.js to fit the triangle of ball.jpg. */
 .ball { container-type: inline-size; position: relative; }
-.window {
-  position: absolute;
-  left: 50.3%;
-  top: 47.7%;
-  width: 55cqw;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) scale(0.6);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 50% 40%, #2a3190 0%, #14125a 55%, #0a0830 100%);
-  box-shadow: inset 0 0 6cqw rgba(0, 0, 0, 0.8), 0 0 4cqw rgba(60, 70, 220, 0.45);
-  opacity: 0;
-  filter: blur(6px);
-  transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease;
-  pointer-events: none;
-}
-.window.open { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+.window { position: absolute; inset: 0; pointer-events: none; }
 .answer {
-  width: 76%;
+  position: absolute;
+  left: 0;
+  width: 100%;
+  top: 50cqw;
   text-align: center;
-  color: #d6dcff;
-  font-weight: 600;
-  line-height: 1.2;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-  text-shadow: 0 0 1.6cqw rgba(140, 160, 255, 0.9);
+  font-family: "Philosopher", Georgia, serif;
+  font-weight: 700;
+  line-height: 1.12;
+  color: #1c1238;
+  text-shadow: 0 0 1.2cqw rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
   opacity: 0;
   transform: translateY(30%);
   filter: blur(5px);
 }
+.answer span { display: block; }
 .answer.rise { animation: rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
 .answer.sink { animation: sink 0.4s ease-in forwards; }
-.answer.s1 { font-size: 7cqw; }
-.answer.s2 { font-size: 5.6cqw; }
-.answer.s3 { font-size: 4.6cqw; }
-.answer.s4 { font-size: 4cqw; }
 @keyframes rise {
   0% { opacity: 0; transform: translateY(35%) scale(0.8); filter: blur(6px); }
   60% { opacity: 0.8; filter: blur(1.5px); }
@@ -107,6 +93,6 @@ main {
   to { opacity: 0; transform: translateY(-25%); filter: blur(5px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .answer.rise, .answer.sink, .window { animation: none; transition: none; }
+  .answer.rise, .answer.sink, .face8 { animation: none; transition: none; }
   .answer.rise { opacity: 1; transform: none; filter: none; }
 }

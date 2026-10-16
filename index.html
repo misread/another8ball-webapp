@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
 <title>8ball</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
   <button id="ball" class="ball" type="button" aria-label="8ball">
-    <img src="ball.jpg" alt="" draggable="false" width="640" height="640">
+    <img class="face" src="ball.jpg" alt="" draggable="false" width="1254" height="1254">
+    <img class="face face8" id="face8" src="ball8.jpg" alt="" draggable="false" width="1254" height="1254">
     <span id="window" class="window" aria-live="polite"><span id="answer" class="answer"></span></span>
   </button>
   <p id="hint" class="hint"></p>
