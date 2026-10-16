@@ -157,10 +157,23 @@
   }
 
   function startMotionFallback() {
-    window.addEventListener("devicemotion", function (e) {
-      var a = e.accelerationIncludingGravity;
-      if (a) onSample(a.x, a.y, a.z);
-    });
+    var listen = function () {
+      window.addEventListener("devicemotion", function (e) {
+        var a = e.accelerationIncludingGravity;
+        if (a) onSample(a.x, a.y, a.z);
+      });
+    };
+    var DM = window.DeviceMotionEvent;
+    if (DM && typeof DM.requestPermission === "function") {
+      // iOS Safari: motion needs a user gesture, ask on the first tap
+      var ask = function () {
+        document.removeEventListener("click", ask, true);
+        DM.requestPermission().then(function (r) { if (r === "granted") listen(); }).catch(function () {});
+      };
+      document.addEventListener("click", ask, true);
+    } else {
+      listen();
+    }
   }
 
   function startMotion() {
