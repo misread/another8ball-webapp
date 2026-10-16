@@ -5,7 +5,6 @@
     ru: { idle: "Потряси телефон или нажми на шар", again: "Потряси ещё раз или нажми на шар", busy: "Трясу…" },
     en: { idle: "Shake your phone or tap the ball", again: "Shake again or tap the ball", busy: "Shaking…" },
   };
-  var SEND = { ru: "Отправить ответ в чат", en: "Send answer to chat" };
   var SHAKE_DELTA = 12; // m/s^2 change between two samples that counts as a jolt
   var SHAKE_JOLTS = 3; // jolts needed within the window
   var SHAKE_WINDOW = 1000; // ms
@@ -114,12 +113,6 @@
     return i;
   }
 
-  function offerSend() {
-    if (!inTelegram || !tg.MainButton) return;
-    tg.MainButton.setParams({ text: SEND[lang], color: "#7c4dff", text_color: "#ffffff" });
-    tg.MainButton.show();
-  }
-
   function shake() {
     if (busy || !answers.length) return;
     busy = true;
@@ -134,7 +127,6 @@
       showAnswer(current);
       hint.textContent = HINTS[lang].again;
       haptic("medium");
-      offerSend();
       busy = false;
     }, SHAKE_DURATION);
   }
@@ -197,11 +189,6 @@
     tg.ready();
     tg.expand();
     try { tg.disableVerticalSwipes(); } catch (e) {}
-    if (tg.MainButton) {
-      tg.MainButton.onClick(function () {
-        if (current >= 0) tg.sendData("a:" + lang + ":" + current); // closes the app; the bot posts it
-      });
-    }
   }
   if (document.fonts && document.fonts.load) document.fonts.load("700 20px Philosopher", "Абв Abc");
   startMotion();
