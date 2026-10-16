@@ -11,7 +11,7 @@
   var SHAKE_DURATION = 1300; // ms of shaking before the answer floats up
 
   // Worker that posts the answer to the chat (worker/); empty = answers stay inside the app
-  var WORKER_URL = "";
+  var WORKER_URL = "https://another8ball-answer.n-zhashkova.workers.dev";
   var POST_DELAY = 2500; // ms the user sees the answer before it goes to the chat and the app closes
 
   var tg = window.Telegram && window.Telegram.WebApp;
