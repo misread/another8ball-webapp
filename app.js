@@ -2,8 +2,8 @@
   "use strict";
 
   var HINTS = {
-    ru: { idle: "Потряси телефон или нажми на шар", again: "Потряси ещё раз или нажми на шар", busy: "Трясу…" },
-    en: { idle: "Shake your phone or tap the ball", again: "Shake again or tap the ball", busy: "Shaking…" },
+    ru: { idle: "Потряси телефон или нажми на шар", again: "Потряси ещё раз или нажми на шар", busy: "Трясу…", closing: "Окно закроется через {n} с" },
+    en: { idle: "Shake your phone or tap the ball", again: "Shake again or tap the ball", busy: "Shaking…", closing: "Closing in {n} s" },
   };
   var SHAKE_DELTA = 12; // m/s^2 change between two samples that counts as a jolt
   var SHAKE_JOLTS = 3; // jolts needed within the window
@@ -12,11 +12,12 @@
 
   // Worker that posts the answer to the chat (worker/); empty = answers stay inside the app
   var WORKER_URL = "https://another8ball-answer.n-zhashkova.workers.dev";
-  var POST_DELAY = 5000; // ms the user sees the answer before it goes to the chat and the app closes
+  var DEFAULT_SECONDS = 5; // how long the answer stays on the ball before it goes to the chat (bot: /timer)
 
   var tg = window.Telegram && window.Telegram.WebApp;
   var inTelegram = !!(tg && tg.initData);
   var params = new URLSearchParams(location.search);
+  var seconds = Math.max(1, Math.min(30, parseInt(params.get("t"), 10) || DEFAULT_SECONDS));
   var lang = params.get("lang") === "ru" ? "ru" : "en";
   var answers = (window.ANSWERS && window.ANSWERS[lang]) || [];
   var ball = document.getElementById("ball");
@@ -126,9 +127,19 @@
     return i;
   }
 
+  var postTimer = null;
+  var tick = null;
+
+  function canPost() {
+    return !!(WORKER_URL && inTelegram && new URLSearchParams(tg.initData).get("query_id"));
+  }
+
+  function cancelPost() {
+    clearTimeout(postTimer);
+    clearInterval(tick);
+  }
+
   function postToChat(text) {
-    if (!WORKER_URL || !inTelegram) return;
-    if (!new URLSearchParams(tg.initData).get("query_id")) return;
     fetch(WORKER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -138,9 +149,26 @@
       .catch(function () {});
   }
 
+  // Shows the countdown in the hint, then sends the answer to the chat (Telegram closes the app).
+  function schedulePost(text) {
+    if (!canPost()) return;
+    var end = Date.now() + seconds * 1000;
+    var show = function () {
+      var n = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      hint.textContent = HINTS[lang].closing.replace("{n}", n);
+    };
+    show();
+    tick = setInterval(show, 250);
+    postTimer = setTimeout(function () {
+      clearInterval(tick);
+      postToChat(text);
+    }, seconds * 1000);
+  }
+
   function shake() {
     if (busy || !answers.length) return;
     busy = true;
+    cancelPost();
     ball.classList.add("shaking");
     hint.textContent = HINTS[lang].busy;
     ball.classList.add("answered"); // the "8" fades out, revealing the empty triangle
@@ -152,8 +180,7 @@
       showAnswer(current);
       hint.textContent = HINTS[lang].again;
       haptic("medium");
-      var shown = current;
-      setTimeout(function () { if (shown === current) postToChat(answers[shown]); }, POST_DELAY);
+      schedulePost(answers[current]);
       busy = false;
     }, SHAKE_DURATION);
   }
