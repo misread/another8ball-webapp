@@ -2,17 +2,26 @@
   "use strict";
 
   var HINTS = {
-    ru: { idle: "Потряси телефон или нажми на шар", again: "Потряси ещё раз или нажми на шар", busy: "Трясу…", closing: "Окно закроется через {n} с" },
-    en: { idle: "Shake your phone or tap the ball", again: "Shake again or tap the ball", busy: "Shaking…", closing: "Closing in {n} s" },
+    ru: {
+      idle: "Потряси телефон или нажми на шар", again: "Потряси ещё раз или нажми на шар", busy: "Трясу…",
+      closing: "Окно закроется через {n} с", pay: "Платный шейк: {n} ⭐", ask: "Сначала задай вопрос в чате",
+      error: "Не получилось, попробуй ещё раз",
+    },
+    en: {
+      idle: "Shake your phone or tap the ball", again: "Shake again or tap the ball", busy: "Shaking…",
+      closing: "Closing in {n} s", pay: "Paid shake: {n} ⭐", ask: "Ask a question in the chat first",
+      error: "Something went wrong, try again",
+    },
   };
   var SHAKE_DELTA = 12; // m/s^2 change between two samples that counts as a jolt
   var SHAKE_JOLTS = 3; // jolts needed within the window
   var SHAKE_WINDOW = 1000; // ms
   var SHAKE_DURATION = 1300; // ms of shaking before the answer floats up
 
-  // Worker that posts the answer to the chat (worker/); empty = answers stay inside the app
-  var WORKER_URL = "https://another8ball-answer.n-zhashkova.workers.dev";
-  var DEFAULT_SECONDS = 5; // how long the answer stays on the ball before it goes to the chat (bot: /timer)
+  // The bot decides whether a shake is allowed, spends it, picks the answer and posts it to the chat.
+  var SHAKE_URL = "https://n-zhashkova--another8ball-bot-bot.us-east.modal.run/shake";
+  var DEFAULT_SECONDS = 5; // how long the answer stays on the ball (bot: /timer); outside Telegram only
+  var PAID_RETRIES = 4; // the payment reaches the bot a moment after Telegram reports it
 
   var tg = window.Telegram && window.Telegram.WebApp;
   var inTelegram = !!(tg && tg.initData);
@@ -127,62 +136,96 @@
     return i;
   }
 
-  var postTimer = null;
   var tick = null;
 
-  function canPost() {
-    return !!(WORKER_URL && inTelegram && new URLSearchParams(tg.initData).get("query_id"));
-  }
-
-  function cancelPost() {
-    clearTimeout(postTimer);
+  function stopCountdown() {
     clearInterval(tick);
   }
 
-  function postToChat(text) {
-    fetch(WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ initData: tg.initData, text: text }),
-    })
-      .then(function (r) { if (r.ok) tg.close(); })
-      .catch(function () {});
-  }
-
-  // Shows the countdown in the hint, then sends the answer to the chat (Telegram closes the app).
-  function schedulePost(text) {
-    if (!canPost()) return;
-    var end = Date.now() + seconds * 1000;
+  // Shows the countdown, then closes the app; the bot posts the answer to the chat by itself.
+  function countdown(secs) {
+    stopCountdown();
+    var end = Date.now() + secs * 1000;
     var show = function () {
       var n = Math.max(0, Math.ceil((end - Date.now()) / 1000));
       hint.textContent = HINTS[lang].closing.replace("{n}", n);
+      if (n === 0) {
+        stopCountdown();
+        tg.close();
+      }
     };
     show();
     tick = setInterval(show, 250);
-    postTimer = setTimeout(function () {
-      clearInterval(tick);
-      postToChat(text);
-    }, seconds * 1000);
   }
 
-  function shake() {
-    if (busy || !answers.length) return;
-    busy = true;
-    cancelPost();
+  function askBot() {
+    return fetch(SHAKE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: tg.initData }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    });
+  }
+
+  function reveal(index, secs) {
     ball.classList.add("shaking");
     hint.textContent = HINTS[lang].busy;
     ball.classList.add("answered"); // the "8" fades out, revealing the empty triangle
     if (current >= 0) answerEl.className = "answer sink";
     haptic("heavy");
     setTimeout(function () {
-      current = pickIndex();
+      current = index;
       ball.classList.remove("shaking");
       showAnswer(current);
       hint.textContent = HINTS[lang].again;
       haptic("medium");
-      schedulePost(answers[current]);
+      if (secs) countdown(secs);
       busy = false;
     }, SHAKE_DURATION);
+  }
+
+  function say(key, n) {
+    hint.textContent = HINTS[lang][key].replace("{n}", n);
+    busy = false;
+  }
+
+  // Inside Telegram: the bot counts the shake first, so closing the app early cannot avoid it.
+  function shakeViaBot(retries) {
+    askBot()
+      .then(function (res) {
+        if (res.ok) return reveal(res.index % answers.length, res.seconds);
+        if (res.reason === "retry" && retries > 0) {
+          return setTimeout(function () { shakeViaBot(retries - 1); }, 700);
+        }
+        if (res.reason === "ask_first") return say("ask");
+        if (res.reason === "pay" && res.invoice && tg.openInvoice) {
+          say("pay", res.stars);
+          busy = true;
+          return tg.openInvoice(res.invoice, function (status) {
+            if (status === "paid") {
+              setTimeout(function () { shakeViaBot(PAID_RETRIES); }, 700);
+            } else {
+              busy = false;
+            }
+          });
+        }
+        say("error");
+      })
+      .catch(function () { say("error"); });
+  }
+
+  function shake() {
+    if (busy || !answers.length) return;
+    busy = true;
+    stopCountdown();
+    if (inTelegram) {
+      hint.textContent = HINTS[lang].busy;
+      shakeViaBot(0);
+    } else {
+      reveal(pickIndex(), 0); // outside Telegram (browser preview) the ball is just a toy
+    }
   }
 
   function onSample(x, y, z) {
