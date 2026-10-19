@@ -19,7 +19,9 @@
   var SHAKE_DURATION = 1300; // ms of shaking before the answer floats up
 
   // The bot decides whether a shake is allowed, spends it, picks the answer and posts it to the chat.
-  var SHAKE_URL = "https://n-zhashkova--another8ball-bot-bot.us-east.modal.run/shake";
+  var BOT_URL = "https://n-zhashkova--another8ball-bot-bot.us-east.modal.run";
+  var SHAKE_URL = BOT_URL + "/shake";
+  var CLOSE_URL = BOT_URL + "/close";
   var DEFAULT_SECONDS = 5; // how long the answer stays on the ball (bot: /timer); outside Telegram only
   var PAID_RETRIES = 4; // the payment reaches the bot a moment after Telegram reports it
 
@@ -158,6 +160,27 @@
     tick = setInterval(show, 250);
   }
 
+  var pendingShake = false; // the bot is holding an answer until the app closes or the timer ends
+
+  // Tell the bot the app is going away so it posts the answer now instead of waiting for the timer.
+  function notifyClosed() {
+    if (!pendingShake || !inTelegram) return;
+    pendingShake = false;
+    try {
+      fetch(CLOSE_URL, {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "text/plain;charset=UTF-8" }, // a simple request: no preflight while unloading
+        body: JSON.stringify({ initData: tg.initData }),
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") notifyClosed();
+  });
+  window.addEventListener("pagehide", notifyClosed);
+
   function askBot() {
     return fetch(SHAKE_URL, {
       method: "POST",
@@ -195,7 +218,10 @@
   function shakeViaBot(retries) {
     askBot()
       .then(function (res) {
-        if (res.ok) return reveal(res.index % answers.length, res.seconds);
+        if (res.ok) {
+          pendingShake = true;
+          return reveal(res.index % answers.length, res.seconds);
+        }
         if (res.reason === "retry" && retries > 0) {
           return setTimeout(function () { shakeViaBot(retries - 1); }, 700);
         }
