@@ -22,6 +22,8 @@
   var BOT_URL = "https://n-zhashkova--another8ball-bot-bot.us-east.modal.run";
   var SHAKE_URL = BOT_URL + "/shake";
   var CLOSE_URL = BOT_URL + "/close";
+  var PING_URL = BOT_URL + "/ping";
+  var PING_EVERY = 500; // ms; the bot treats a page that stops pinging as closed
   var DEFAULT_SECONDS = 5; // how long the answer stays on the ball (bot: /timer); outside Telegram only
   var PAID_RETRIES = 4; // the payment reaches the bot a moment after Telegram reports it
 
@@ -153,6 +155,7 @@
       hint.textContent = HINTS[lang].closing.replace("{n}", n);
       if (n === 0) {
         stopCountdown();
+        stopPing();
         tg.close();
       }
     };
@@ -161,11 +164,33 @@
   }
 
   var pendingShake = false; // the bot is holding an answer until the app closes or the timer ends
+  var pingTimer = null;
+
+  // Telegram does not reliably fire page events when it closes the app, so the open page says
+  // "I am here" and the bot posts the answer as soon as that stops.
+  function ping() {
+    fetch(PING_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" }, // a simple request: no preflight
+      body: JSON.stringify({ initData: tg.initData }),
+    }).catch(function () {});
+  }
+
+  function stopPing() {
+    clearInterval(pingTimer);
+  }
+
+  function startPing() {
+    stopPing();
+    ping();
+    pingTimer = setInterval(ping, PING_EVERY);
+  }
 
   // Tell the bot the app is going away so it posts the answer now instead of waiting for the timer.
   function notifyClosed() {
     if (!pendingShake || !inTelegram) return;
     pendingShake = false;
+    stopPing();
     try {
       fetch(CLOSE_URL, {
         method: "POST",
@@ -220,6 +245,7 @@
       .then(function (res) {
         if (res.ok) {
           pendingShake = true;
+          startPing();
           return reveal(res.index % answers.length, res.seconds);
         }
         if (res.reason === "retry" && retries > 0) {
